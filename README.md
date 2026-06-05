@@ -96,6 +96,12 @@ Or:
 ./target/release/s3_browser_tool
 ```
 
+![S3 Browser Tool GUI](assets/screenshot.png)
+
+The main window: enter a bucket name in the toolbar, connect, and the object
+list fills the table. The status bar at the bottom shows the object count and
+operation results.
+
 **Usage:**
 - Bucket from `.env` is pre-loaded on startup and objects listed automatically
 - Change the bucket in the text field and click **Connect** to switch buckets

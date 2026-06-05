@@ -98,9 +98,9 @@ Or:
 
 ![S3 Browser Tool GUI](assets/screenshot.png)
 
-The main window: enter a bucket name in the toolbar, connect, and the object
-list fills the table. The status bar at the bottom shows the object count and
-operation results.
+The main window: enter a bucket name in the toolbar and click **Connect** to
+list the bucket's objects. The status bar at the bottom shows the object count
+and operation results.
 
 **Usage:**
 - Bucket from `.env` is pre-loaded on startup and objects listed automatically

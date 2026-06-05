@@ -3,7 +3,7 @@
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, config::Region, meta::PKG_VERSION};
 use clap::{Parser, Subcommand};
-use s3_test::*;
+use s3_browser_tool::*;
 
 #[derive(Debug, Parser)]
 #[command(name = "s3-cli", about = "S3 bucket management CLI")]
@@ -43,7 +43,7 @@ enum Command {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), s3_test::error::S3ExampleError> {
+async fn main() -> Result<(), s3_browser_tool::error::S3ExampleError> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 

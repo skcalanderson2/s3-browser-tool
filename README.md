@@ -1,4 +1,4 @@
-# S3 Browser
+# S3 Browser Tool
 
 Desktop GUI and CLI for browsing and managing Amazon S3 buckets, built with Rust and the AWS SDK for Rust.
 
@@ -38,7 +38,7 @@ Region defaults to `us-east-1` if unset. The CLI also accepts `--region` and `--
 ### GUI only
 
 ```bash
-cargo build --release --bin s3_test
+cargo build --release --bin s3_browser_tool
 ```
 
 ### CLI only
@@ -53,20 +53,20 @@ cargo build --release --bin cli
 cargo build --release
 ```
 
-Compiled binaries are at `target/release/s3_test` (GUI) and `target/release/cli` (CLI).
+Compiled binaries are at `target/release/s3_browser_tool` (GUI) and `target/release/cli` (CLI).
 
 ## Run
 
 ### GUI
 
 ```bash
-cargo run --release --bin s3_test
+cargo run --release --bin s3_browser_tool
 ```
 
 Or:
 
 ```bash
-./target/release/s3_test
+./target/release/s3_browser_tool
 ```
 
 **Usage:**
@@ -128,7 +128,7 @@ cargo run --bin cli -- --bucket my-other-bucket --region us-west-2 list-objects
 
 ```
 src/
-  main.rs        # Iced GUI application (binary: s3_test)
+  main.rs        # Iced GUI application (binary: s3_browser_tool)
   lib.rs         # S3 operations (list, upload, delete) — shared by GUI and CLI
   error.rs       # S3ExampleError type
   bin/

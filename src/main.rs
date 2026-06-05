@@ -13,7 +13,7 @@ use iced::{
 
 fn main() -> iced::Result {
     dotenvy::dotenv().ok();
-    iced::application("S3 Browser", App::update, App::view)
+    iced::application("S3 Browser Tool", App::update, App::view)
         .theme(|_| Theme::Dark)
         .subscription(|app: &App| app.subscription())
         .run_with(App::new)
@@ -120,7 +120,7 @@ impl App {
                 let bucket = self.bucket.clone();
                 Task::perform(
                     async move {
-                        s3_test::list_objects_keys(&client.0, &bucket)
+                        s3_browser_tool::list_objects_keys(&client.0, &bucket)
                             .await
                             .map_err(|e| e.to_string())
                     },
@@ -209,7 +209,7 @@ impl App {
                 self.status = format!("Uploading {key}...");
                 Task::perform(
                     async move {
-                        s3_test::upload_object(&client.0, &bucket, &path, &key)
+                        s3_browser_tool::upload_object(&client.0, &bucket, &path, &key)
                             .await
                             .map(|_| ())
                             .map_err(|e| e.to_string())
@@ -245,7 +245,7 @@ impl App {
                 self.status = format!("Deleting {key}...");
                 Task::perform(
                     async move {
-                        s3_test::remove_object(&client.0, &bucket, &key)
+                        s3_browser_tool::remove_object(&client.0, &bucket, &key)
                             .await
                             .map_err(|e| e.to_string())
                     },
@@ -277,7 +277,7 @@ impl App {
 
     fn view(&self) -> Element<Message> {
         let header = container(
-            text("S3 Browser").size(22).color(Color::WHITE),
+            text("S3 Browser Tool").size(22).color(Color::WHITE),
         )
         .padding([14, 20])
         .width(Length::Fill)

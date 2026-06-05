@@ -275,7 +275,7 @@ impl App {
         }
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_, Message> {
         let header = container(
             text("S3 Browser Tool").size(22).color(Color::WHITE),
         )

@@ -68,6 +68,9 @@ enum Message {
     ConfirmDeleteFile(String),
     DeleteConfirmed,
     FileDeleted(Result<(), String>),
+    DownloadFile(String),
+    SavePathPicked(String, Option<String>),
+    FileDownloaded(Result<String, String>),
     CancelDialog,
     MouseMoved(Point),
 }
@@ -260,6 +263,54 @@ impl App {
 
             Message::FileDeleted(Err(e)) => {
                 self.status = format!("Delete error: {e}");
+                Task::none()
+            }
+
+            Message::DownloadFile(key) => {
+                self.context_menu = None;
+                let file_name = std::path::Path::new(&key)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| key.clone());
+                Task::perform(
+                    async move {
+                        let path = rfd::AsyncFileDialog::new()
+                            .set_file_name(&file_name)
+                            .save_file()
+                            .await
+                            .map(|f| f.path().to_string_lossy().into_owned());
+                        (key, path)
+                    },
+                    |(key, path)| Message::SavePathPicked(key, path),
+                )
+            }
+
+            Message::SavePathPicked(key, Some(path)) => {
+                let Some(client) = self.client.clone() else {
+                    return Task::none();
+                };
+                let bucket = self.bucket.clone();
+                self.status = format!("Downloading {key}...");
+                Task::perform(
+                    async move {
+                        s3_browser_tool::download_object(&client.0, &bucket, &key, &path)
+                            .await
+                            .map(|_| path)
+                            .map_err(|e| e.to_string())
+                    },
+                    Message::FileDownloaded,
+                )
+            }
+
+            Message::SavePathPicked(_, None) => Task::none(),
+
+            Message::FileDownloaded(Ok(path)) => {
+                self.status = format!("Downloaded to {path}");
+                Task::none()
+            }
+
+            Message::FileDownloaded(Err(e)) => {
+                self.status = format!("Download error: {e}");
                 Task::none()
             }
 
@@ -489,6 +540,9 @@ impl App {
         if let Some(ctx) = &self.context_menu {
             let menu = container(
                 column![
+                    button(text("Download").size(13))
+                        .width(Length::Fill)
+                        .on_press(Message::DownloadFile(ctx.key.clone())),
                     button(text("Delete").size(13))
                         .style(button::danger)
                         .width(Length::Fill)

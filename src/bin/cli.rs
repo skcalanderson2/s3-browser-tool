@@ -40,6 +40,16 @@ enum Command {
         #[arg(short, long)]
         file_name: String,
     },
+
+    /// Download an object from the bucket to a local file
+    DownloadFile {
+        #[arg(short, long)]
+        file_name: String,
+
+        /// Local destination path (defaults to the object key name)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -90,6 +100,25 @@ async fn main() -> Result<(), s3_browser_tool::error::S3ExampleError> {
                 }
                 Err(e) => {
                     eprintln!("Failed to delete '{}': {}", file_name, e);
+                    Err(e)
+                }
+            }
+        }
+
+        Command::DownloadFile { file_name, output } => {
+            let destination = output.unwrap_or_else(|| {
+                std::path::Path::new(&file_name)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| file_name.clone())
+            });
+            match download_object(&client, &bucket, &file_name, &destination).await {
+                Ok(_) => {
+                    println!("Downloaded '{}' to '{}'.", file_name, destination);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("Failed to download '{}': {}", file_name, e);
                     Err(e)
                 }
             }

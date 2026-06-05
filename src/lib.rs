@@ -65,6 +65,36 @@ pub async fn upload_object(
         .map_err(S3ExampleError::from)
 }
 
+pub async fn download_object(
+    client: &aws_sdk_s3::Client,
+    bucket: &str,
+    key: &str,
+    destination: &str,
+) -> Result<(), S3ExampleError> {
+    let mut object = client
+        .get_object()
+        .bucket(bucket)
+        .key(key)
+        .send()
+        .await?;
+
+    let mut file = std::fs::File::create(destination)
+        .map_err(|e| S3ExampleError::new(format!("Failed to create '{destination}': {e}")))?;
+
+    use std::io::Write;
+    while let Some(bytes) = object
+        .body
+        .try_next()
+        .await
+        .map_err(|e| S3ExampleError::new(format!("Failed to read object body: {e}")))?
+    {
+        file.write_all(&bytes)
+            .map_err(|e| S3ExampleError::new(format!("Failed to write '{destination}': {e}")))?;
+    }
+
+    Ok(())
+}
+
 pub async fn remove_object(
     client: &aws_sdk_s3::Client,
     bucket: &str,

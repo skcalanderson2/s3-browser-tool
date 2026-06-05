@@ -8,6 +8,7 @@ The GUI uses [Iced](https://iced.rs/) with a dark theme. The CLI uses [Clap](htt
 
 - List objects in an S3 bucket
 - Upload files to a bucket
+- Download objects to a local file
 - Delete objects with confirmation (GUI) or direct command (CLI)
 - Credentials and bucket name loaded automatically from `.env`
 
@@ -74,7 +75,7 @@ Or:
 - Change the bucket in the text field and click **Connect** to switch buckets
 - Click **Refresh** to reload the object list
 - Click **Upload File** → use **Browse** for a native file picker or type a path manually
-- **Right-click** any object to open the context menu (Delete, with confirmation dialog)
+- **Right-click** any object to open the context menu (Download via native save dialog; Delete, with confirmation dialog)
 
 ---
 
@@ -106,6 +107,7 @@ COMMANDS:
     list-objects             List objects in the bucket
     upload-file              Upload a local file to the bucket
     delete-file              Delete an object from the bucket
+    download-file            Download an object from the bucket to a local file
 ```
 
 **Examples:**
@@ -116,6 +118,9 @@ cargo run --bin cli -- list-objects
 
 # Upload a file
 cargo run --bin cli -- upload-file --file-name ./report.pdf
+
+# Download an object (optionally to a specific path with --output)
+cargo run --bin cli -- download-file --file-name report.pdf
 
 # Delete an object
 cargo run --bin cli -- delete-file --file-name report.pdf
@@ -129,7 +134,7 @@ cargo run --bin cli -- --bucket my-other-bucket --region us-west-2 list-objects
 ```
 src/
   main.rs        # Iced GUI application (binary: s3_browser_tool)
-  lib.rs         # S3 operations (list, upload, delete) — shared by GUI and CLI
+  lib.rs         # S3 operations (list, upload, download, delete) — shared by GUI and CLI
   error.rs       # S3ExampleError type
   bin/
     cli.rs       # Clap CLI application (binary: cli)

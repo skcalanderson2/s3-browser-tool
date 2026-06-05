@@ -10,7 +10,9 @@ The GUI uses [Iced](https://iced.rs/) with a dark theme. The CLI uses [Clap](htt
 - Upload files to a bucket
 - Download objects to a local file
 - Delete objects with confirmation (GUI) or direct command (CLI)
-- Credentials and bucket name loaded automatically from `.env`
+- GUI stores AWS credentials securely in the Apple Keychain
+- Installable macOS app bundle with custom icon
+- Credentials and bucket name can also come from `.env` or the standard AWS provider chain
 
 ## Prerequisites
 
@@ -22,6 +24,19 @@ The GUI uses [Iced](https://iced.rs/) with a dark theme. The CLI uses [Clap](htt
   - `s3:DeleteObject`
 
 ## Configuration
+
+### GUI: Apple Keychain (recommended)
+
+On first launch the GUI opens a credentials dialog automatically. Enter your
+Access Key ID, Secret Access Key, and optional region, then click
+**Save to Keychain**. Credentials are stored in the macOS Keychain under the
+service name "S3 Browser Tool" and used on every launch. Update them anytime
+via the **Credentials** toolbar button.
+
+Keychain credentials take priority. If none are stored, the app falls back to
+the standard AWS provider chain (environment variables, `~/.aws/credentials`).
+
+### CLI / fallback: `.env` file
 
 Create a `.env` file in the project root (never committed to git):
 
@@ -55,6 +70,17 @@ cargo build --release
 ```
 
 Compiled binaries are at `target/release/s3_browser_tool` (GUI) and `target/release/cli` (CLI).
+
+### macOS app bundle
+
+```bash
+scripts/bundle.sh            # build "S3 Browser Tool.app" in target/release/bundle/
+scripts/bundle.sh --install  # build and install into /Applications
+```
+
+The script builds the release binary, generates the app icon
+(`assets/make_icon.py`, requires Python 3 with Pillow), assembles the `.app`
+bundle with `Info.plist`, and ad-hoc signs it so Keychain access persists.
 
 ## Run
 

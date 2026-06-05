@@ -19,6 +19,46 @@ fn main() -> iced::Result {
         .run_with(App::new)
 }
 
+// --- Apple Keychain storage for AWS credentials ---
+
+const KEYCHAIN_SERVICE: &str = "S3 Browser Tool";
+
+fn keychain_get(name: &str) -> Option<String> {
+    keyring::Entry::new(KEYCHAIN_SERVICE, name)
+        .ok()?
+        .get_password()
+        .ok()
+}
+
+fn keychain_set(name: &str, value: &str) -> Result<(), String> {
+    keyring::Entry::new(KEYCHAIN_SERVICE, name)
+        .and_then(|entry| entry.set_password(value))
+        .map_err(|e| e.to_string())
+}
+
+/// Build an S3 client. Credentials stored in the Keychain take priority;
+/// otherwise fall back to the default provider chain (env vars, ~/.aws).
+async fn build_client() -> S3Client {
+    let access = keychain_get("aws_access_key_id");
+    let secret = keychain_get("aws_secret_access_key");
+    let region = keychain_get("aws_region").filter(|r| !r.is_empty());
+
+    let region_provider = RegionProviderChain::first_try(region.map(Region::new))
+        .or_default_provider()
+        .or_else(Region::new("us-east-1"));
+
+    let mut loader =
+        aws_config::defaults(aws_config::BehaviorVersion::latest()).region(region_provider);
+
+    if let (Some(access), Some(secret)) = (access, secret) {
+        loader = loader.credentials_provider(aws_sdk_s3::config::Credentials::new(
+            access, secret, None, None, "keychain",
+        ));
+    }
+
+    S3Client(Arc::new(Client::new(&loader.load().await)))
+}
+
 // Newtype so Arc<Client> is Debug + Clone for Message derive
 #[derive(Clone)]
 struct S3Client(Arc<Client>);
@@ -48,6 +88,11 @@ struct ContextMenu {
 enum Dialog {
     Upload { path: String },
     ConfirmDelete { key: String },
+    Credentials {
+        access_key: String,
+        secret_key: String,
+        region: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -73,33 +118,42 @@ enum Message {
     FileDownloaded(Result<String, String>),
     CancelDialog,
     MouseMoved(Point),
+    ShowCredentialsDialog,
+    CredAccessChanged(String),
+    CredSecretChanged(String),
+    CredRegionChanged(String),
+    SaveCredentials,
 }
 
 impl App {
     fn new() -> (Self, Task<Message>) {
         let bucket = std::env::var("AWS_S3_BUCKET").unwrap_or_default();
+
+        // Open the credentials dialog on first launch when no credentials
+        // exist in the Keychain or environment.
+        let has_creds = keychain_get("aws_access_key_id").is_some()
+            || std::env::var("AWS_ACCESS_KEY_ID").is_ok();
+        let dialog = (!has_creds).then(|| Dialog::Credentials {
+            access_key: String::new(),
+            secret_key: String::new(),
+            region: String::new(),
+        });
+
         let app = App {
             bucket,
             files: Vec::new(),
-            status: "Initializing...".into(),
+            status: if has_creds {
+                "Initializing...".into()
+            } else {
+                "Enter your AWS credentials to get started".into()
+            },
             client: None,
             loading: false,
             mouse_pos: Point::ORIGIN,
             context_menu: None,
-            dialog: None,
+            dialog,
         };
-        let task = Task::perform(
-            async {
-                let region_provider = RegionProviderChain::default_provider()
-                    .or_else(Region::new("us-east-1"));
-                let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-                    .region(region_provider)
-                    .load()
-                    .await;
-                S3Client(Arc::new(Client::new(&config)))
-            },
-            Message::ClientReady,
-        );
+        let task = Task::perform(build_client(), Message::ClientReady);
         (app, task)
     }
 
@@ -323,6 +377,63 @@ impl App {
                 self.mouse_pos = pos;
                 Task::none()
             }
+
+            Message::ShowCredentialsDialog => {
+                self.context_menu = None;
+                self.dialog = Some(Dialog::Credentials {
+                    access_key: keychain_get("aws_access_key_id").unwrap_or_default(),
+                    secret_key: keychain_get("aws_secret_access_key").unwrap_or_default(),
+                    region: keychain_get("aws_region").unwrap_or_default(),
+                });
+                Task::none()
+            }
+
+            Message::CredAccessChanged(s) => {
+                if let Some(Dialog::Credentials { access_key, .. }) = &mut self.dialog {
+                    *access_key = s;
+                }
+                Task::none()
+            }
+
+            Message::CredSecretChanged(s) => {
+                if let Some(Dialog::Credentials { secret_key, .. }) = &mut self.dialog {
+                    *secret_key = s;
+                }
+                Task::none()
+            }
+
+            Message::CredRegionChanged(s) => {
+                if let Some(Dialog::Credentials { region, .. }) = &mut self.dialog {
+                    *region = s;
+                }
+                Task::none()
+            }
+
+            Message::SaveCredentials => {
+                let Some(Dialog::Credentials { access_key, secret_key, region }) =
+                    self.dialog.take()
+                else {
+                    return Task::none();
+                };
+                if access_key.is_empty() || secret_key.is_empty() {
+                    self.status = "Access key and secret key are required".into();
+                    self.dialog = Some(Dialog::Credentials { access_key, secret_key, region });
+                    return Task::none();
+                }
+                let result = keychain_set("aws_access_key_id", &access_key)
+                    .and_then(|_| keychain_set("aws_secret_access_key", &secret_key))
+                    .and_then(|_| keychain_set("aws_region", &region));
+                match result {
+                    Ok(()) => {
+                        self.status = "Credentials saved to Keychain, connecting...".into();
+                        Task::perform(build_client(), Message::ClientReady)
+                    }
+                    Err(e) => {
+                        self.status = format!("Keychain error: {e}");
+                        Task::none()
+                    }
+                }
+            }
         }
     }
 
@@ -349,6 +460,7 @@ impl App {
                     (!self.loading && self.client.is_some()).then_some(Message::Refresh),
                 ),
                 Space::with_width(Length::Fill),
+                button("Credentials").on_press(Message::ShowCredentialsDialog),
                 button("Upload File").on_press(Message::ShowUploadDialog),
             ]
             .spacing(10)
@@ -502,6 +614,34 @@ impl App {
                     .spacing(8),
                 ]
                 .spacing(14)
+                .padding(24)
+                .into(),
+
+                Dialog::Credentials { access_key, secret_key, region } => column![
+                    text("AWS Credentials").size(18),
+                    text("Stored securely in the Apple Keychain.")
+                        .size(13)
+                        .color(Color::from_rgb(0.6, 0.6, 0.7)),
+                    text("Access Key ID").size(12).color(Color::from_rgb(0.5, 0.5, 0.65)),
+                    text_input("AKIA...", access_key)
+                        .on_input(Message::CredAccessChanged)
+                        .width(Length::Fill),
+                    text("Secret Access Key").size(12).color(Color::from_rgb(0.5, 0.5, 0.65)),
+                    text_input("Secret key...", secret_key)
+                        .secure(true)
+                        .on_input(Message::CredSecretChanged)
+                        .width(Length::Fill),
+                    text("Region (optional)").size(12).color(Color::from_rgb(0.5, 0.5, 0.65)),
+                    text_input("us-east-2", region)
+                        .on_input(Message::CredRegionChanged)
+                        .width(Length::Fill),
+                    row![
+                        button("Save to Keychain").on_press(Message::SaveCredentials),
+                        button("Cancel").on_press(Message::CancelDialog),
+                    ]
+                    .spacing(8),
+                ]
+                .spacing(10)
                 .padding(24)
                 .into(),
             };

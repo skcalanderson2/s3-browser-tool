@@ -5,6 +5,7 @@
 .env
 *.env
 .env.*
+.env_skcalanderson
 
 # IDE
 .idea/
@@ -13,3 +14,8 @@
 
 # macOS
 .DS_Store
+
+# Generated icon artifacts (assets/make_icon.py output)
+assets/icon_1024.png
+assets/AppIcon.icns
+assets/AppIcon.iconset/

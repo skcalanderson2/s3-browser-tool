@@ -1,0 +1,15 @@
+# Rust
+/target
+
+# Environment / secrets
+.env
+*.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store

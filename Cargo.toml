@@ -1,0 +1,17 @@
+[package]
+name = "s3_test"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0.3"
+
+[dependencies]
+aws-config = "1.8.18"
+aws-sdk-s3 = "1.134.0"
+dotenvy = "0.15"
+iced = { version = "0.13", features = ["tokio"] }
+rfd = "0.15"
+tokio = { version = "1.52.3", features = ["full"] }
+tracing-subscriber = "0.3"
